@@ -9,35 +9,97 @@
     <meta name="theme-color" content="#007bff">
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f6f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 40px;
             text-align: center;
-            margin-top: 50px;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h3 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 24px;
         }
 
         #qrcode {
-            margin-top: 20px;
+            margin-bottom: 20px;
         }
 
         button {
-            margin-top: 20px;
-            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
             font-size: 16px;
             cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:active {
+            background-color: #004085;
+        }
+
+        .version-info {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #888;
         }
     </style>
 </head>
 
 <body>
 
-    <h3>电梯码</h3>
+    <div class="container">
+        <h3>电梯码</h3>
 
-    <canvas id="qrcode"></canvas>
-    <br>
-    <button onclick="refreshQrCode()">刷新二维码</button>
+        <canvas id="qrcode"></canvas>
+        <br>
+        <button onclick="refreshQrCode()">刷新二维码</button>
+
+        <div class="version-info" id="version-display"></div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
     <script>
+        const APP_VERSION = '1.2.0';
+        const STORAGE_KEY_CONTENT = 'qr_content';
+        const STORAGE_KEY_TIME = 'qr_timestamp';
+        const STORAGE_KEY_VERSION = 'app_version';
+
+        // Display version
+        document.getElementById('version-display').innerText = 'Version ' + APP_VERSION;
+
+        // Version Comparison
+        const localVersion = localStorage.getItem(STORAGE_KEY_VERSION);
+        if (localVersion && localVersion !== APP_VERSION) {
+            console.log('App updated from ' + localVersion + ' to ' + APP_VERSION);
+            // Here we could force some migration if needed.
+        }
+        localStorage.setItem(STORAGE_KEY_VERSION, APP_VERSION);
+
         // 注册 Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
@@ -51,63 +113,86 @@
 
         // AES 加密函数
         function getAesString(plainText, key, iv) {
-            var parsedKey = CryptoJS.enc.Utf8.parse(key);  // 将密钥解析为 UTF-8 编码
-            var parsedIv = CryptoJS.enc.Utf8.parse(iv);    // 将 IV 解析为 UTF-8 编码
+            var parsedKey = CryptoJS.enc.Utf8.parse(key);
+            var parsedIv = CryptoJS.enc.Utf8.parse(iv);
             var encrypted = CryptoJS.AES.encrypt(plainText, parsedKey, {
                 iv: parsedIv,
-                mode: CryptoJS.mode.CBC,  // CBC 模式
-                padding: CryptoJS.pad.Pkcs7  // PKCS7 填充
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
             });
-            return encrypted.toString();  // 返回加密后的字符串
+            return encrypted.toString();
         }
 
         // 生成 QR Code 的函数
         function generateQrCode(content) {
             var qr = new QRious({
                 element: document.getElementById('qrcode'),
-                size: 200,  // 二维码大小
-                value: content  // 二维码内容
+                size: 200,
+                value: content
             });
         }
 
         function getNowFormatDate() {
             var e = new Date();
-
-            // 使用 `padStart` 方法确保单个数字前面补零
             var year = e.getFullYear();
             var month = (e.getMonth() + 1).toString().padStart(2, '0');
             var day = e.getDate().toString().padStart(2, '0');
             var hours = e.getHours().toString().padStart(2, '0');
             var minutes = e.getMinutes().toString().padStart(2, '0');
             var seconds = e.getSeconds().toString().padStart(2, '0');
-
-            // 拼接成所需格式的字符串 "yyyyMMddHHmmss"
             return year + month + day + hours + minutes + seconds;
         }
 
         var prefix = "UM_&E&21&0&";
-        var qrCodeContentTemplate = "timestamp&7a05ca6d-4b01-11ef-a26b-08c0eb9317d4&auth&2&0&1&1&{0}&{0}$";  // 二维码内容模板
-        var secretKey = "Remain2017150705";  // 16 字节密钥
-        var ivKey = "201707Remain1505";  // 16 字节 IV
+        var qrCodeContentTemplate = "timestamp&7a05ca6d-4b01-11ef-a26b-08c0eb9317d4&auth&2&0&1&1&{0}&{0}$";
+        var secretKey = "Remain2017150705";
+        var ivKey = "201707Remain1505";
 
         // 刷新二维码内容的函数
         function refreshQrCode() {
-            var qrCodeContent = qrCodeContentTemplate;  // 从模板复制内容
-            var currentTimestamp = getNowFormatDate();  // 获取当前时间戳
-            var networkStatus = "0";  // 假设网络状态为 "0"
-            qrCodeContent = qrCodeContent.replace("timestamp", currentTimestamp);  // 替换时间戳
-            qrCodeContent = qrCodeContent.replace("auth", networkStatus);  // 替换网络状态
+            var qrCodeContent = qrCodeContentTemplate;
+            var currentTimestamp = getNowFormatDate();
+            var networkStatus = "0";
+            qrCodeContent = qrCodeContent.replace("timestamp", currentTimestamp);
+            qrCodeContent = qrCodeContent.replace("auth", networkStatus);
 
-            // 加密二维码内容
             var encryptedQrContent = getAesString(qrCodeContent, secretKey, ivKey);
-            console.log("Encrypted QR Content:", encryptedQrContent);  // 输出加密后的内容
+            var finalContent = prefix + encryptedQrContent;
 
-            // 生成二维码并显示
-            generateQrCode(prefix + encryptedQrContent);
+            console.log("Generated New QR Content");
+            generateQrCode(finalContent);
+
+            // Save to localStorage
+            localStorage.setItem(STORAGE_KEY_CONTENT, finalContent);
+            localStorage.setItem(STORAGE_KEY_TIME, Date.now());
         }
 
-        // 页面加载时生成初始二维码
-        refreshQrCode();
+        function init() {
+            const lastTime = localStorage.getItem(STORAGE_KEY_TIME);
+            const lastContent = localStorage.getItem(STORAGE_KEY_CONTENT);
+
+            const now = Date.now();
+            let shouldRefresh = true;
+
+            if (lastTime && lastContent) {
+                const diff = now - parseInt(lastTime);
+                if (diff < 60000) { // Less than 1 minute
+                    shouldRefresh = false;
+                }
+            }
+
+            if (shouldRefresh) {
+                console.log("Refreshing QR code (time expired or first run)");
+                refreshQrCode();
+            } else {
+                console.log("Restoring cached QR code");
+                generateQrCode(lastContent);
+            }
+        }
+
+        // Initialize on page load
+        init();
+
     </script>
 
 </body>
