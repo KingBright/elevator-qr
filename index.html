@@ -84,7 +84,7 @@
     <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
     <script>
-        const APP_VERSION = '1.2.0';
+        const APP_VERSION = '1.2.1';
         const STORAGE_KEY_CONTENT = 'qr_content';
         const STORAGE_KEY_TIME = 'qr_timestamp';
         const STORAGE_KEY_VERSION = 'app_version';
@@ -192,6 +192,14 @@
 
         // Initialize on page load
         init();
+
+        // Check for refresh when app becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('App became visible, checking for refresh...');
+                init();
+            }
+        });
 
     </script>
 

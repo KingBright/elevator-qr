@@ -1,4 +1,4 @@
-const CACHE_NAME = "qr-code-cache-v1.2";
+const CACHE_NAME = "qr-code-cache-v1.3";
 const urlsToCache = [
   "/elevator-qr",
   "/elevator-qr/index.html",
