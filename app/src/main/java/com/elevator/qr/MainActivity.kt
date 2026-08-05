@@ -29,11 +29,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.elevator.qr.crypto.QrGenerator
 import com.elevator.qr.data.SettingsStore
 import com.elevator.qr.service.LocationService
@@ -113,6 +116,8 @@ fun ElevatorTheme(content: @Composable () -> Unit) {
 @Composable
 fun MainScreen(settingsStore: SettingsStore) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     var qrContent by remember { mutableStateOf("") }
     var timestamp by remember { mutableStateOf("") }
     var countdown by remember { mutableIntStateOf(30) }
@@ -129,9 +134,21 @@ fun MainScreen(settingsStore: SettingsStore) {
         countdown = 30
     }
 
+    // 💡 优化 2：监听 Android Lifecycle ON_RESUME 事件！每次切回前台强制自动刷新二维码
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshQr()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     // Auto Refresh Timer & Countdown
     LaunchedEffect(Unit) {
-        refreshQr()
         while (true) {
             delay(1000)
             if (countdown > 1) {
@@ -234,7 +251,7 @@ fun MainScreen(settingsStore: SettingsStore) {
                             }
                         }
 
-                        // 100% Standard B&W QR Code Canvas (网页同款物理外观)
+                        // 100% Standard B&W QR Code Canvas
                         StyledQrCanvas(
                             content = qrContent,
                             modifier = Modifier

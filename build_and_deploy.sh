@@ -9,8 +9,14 @@ export PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
+# 💡 从 app/build.gradle.kts 自动读取当前 App 版本号
+VERSION_NAME=$(grep 'versionName = ' app/build.gradle.kts | head -n 1 | awk -F'"' '{print $2}')
+if [ -z "$VERSION_NAME" ]; then
+    VERSION_NAME="1.2.2"
+fi
+
 echo "========================================="
-echo "⚡ 电梯码 (Elevator QR) Android 编译发布工具"
+echo "⚡ 电梯码 (Elevator QR) Android 编译发布工具 [v${VERSION_NAME}]"
 echo "========================================="
 
 # 1. 检查 keystore
@@ -19,8 +25,8 @@ if [ ! -f "elevator.jks" ]; then
     keytool -genkeypair -v -keystore elevator.jks -storepass elevator123456 -alias elevator -keypass elevator123456 -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=ElevatorQR, OU=Dev, O=ElevatorApp, L=Beijing, ST=Beijing, C=CN"
 fi
 
-# 2. 执行编译打包 (带 clean 彻底清除增量 dex 缓存)
-echo "📦 正在编译打包 Release APK..."
+# 2. 执行编译打包
+echo "📦 正在编译打包 Release APK (v${VERSION_NAME})..."
 /tmp/gradle-8.7/bin/gradle clean assembleRelease --no-daemon
 
 APK_PATH="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
@@ -32,21 +38,21 @@ fi
 
 echo "✅ 编译成功！APK 文件路径: $APK_PATH"
 
-# 3. 准备 Web 发布目录
+# 3. 准备 Web 发布目录与带有版本号的文件名
 DIST_DIR="$PROJECT_DIR/dist"
 mkdir -p "$DIST_DIR"
-cp "$APK_PATH" "$DIST_DIR/elevator-qr-v1.2.1.apk"
+cp "$APK_PATH" "$DIST_DIR/elevator-qr-v${VERSION_NAME}.apk"
 cp "$APK_PATH" "$DIST_DIR/app-release.apk"
 cp "/Users/jinliang/.gemini/antigravity/brain/6425843d-a95c-4c73-9570-dda25e6f1e4d/elevator_app_icon_1785844319665.jpg" "$DIST_DIR/app-icon.png"
 
-# 4. 生成漂亮的 HTML 下载网页
-cat << 'EOF' > "$DIST_DIR/index.html"
+# 4. 生成漂亮的 HTML 下载网页 (包含动态同步的版本号)
+cat << EOF > "$DIST_DIR/index.html"
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>电梯乘车码 - Android 客户端下载</title>
+    <title>电梯乘车码 - Android 客户端下载 (v${VERSION_NAME})</title>
     <link rel="icon" href="./app-icon.png" type="image/png">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -86,7 +92,7 @@ cat << 'EOF' > "$DIST_DIR/index.html"
             object-fit: cover;
         }
         h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-        .version { font-size: 14px; color: #94a3b8; margin-bottom: 24px; }
+        .version { font-size: 14px; color: #34d399; font-weight: bold; margin-bottom: 24px; }
         .feature-list {
             text-align: left;
             background: rgba(15, 23, 42, 0.6);
@@ -135,19 +141,19 @@ cat << 'EOF' > "$DIST_DIR/index.html"
             <img src="./app-icon.png" alt="App Icon">
         </div>
         <h1>电梯乘车码 App</h1>
-        <div class="version">版本: v1.2.1 (Release 签名版)</div>
+        <div class="version">最新版本: v${VERSION_NAME} (Release 签名版)</div>
 
         <ul class="feature-list">
             <li>⚡ 极速 300ms 冷启动与纯原生 Compose UI</li>
-            <li>📍 智能到站识别：到达公司自动弹出快开通知</li>
-            <li>📱 100% 网页同款标准黑白二维码点阵（支持任意传感器扫码）</li>
-            <li>🔒 独立非 Debug 证书签名，安全稳定</li>
+            <li>📍 智能基站+定位感知：到达公司自动通知</li>
+            <li>🔄 恢复前台自动刷新二维码与 30s 智能轮换</li>
+            <li>📱 100% 网页物理同款标准黑白二维码点阵</li>
         </ul>
 
-        <a href="./elevator-qr-v1.2.1.apk" class="btn-download">🚀 立即下载安装包 (APK)</a>
+        <a href="./elevator-qr-v${VERSION_NAME}.apk" class="btn-download">🚀 立即下载安装包 (v${VERSION_NAME}.apk)</a>
 
         <div class="qr-section">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=./elevator-qr-v1.2.1.apk" alt="扫码下载">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=./elevator-qr-v${VERSION_NAME}.apk" alt="扫码下载">
             <div class="qr-tip">使用手机相机或浏览器扫码直接下载</div>
         </div>
     </div>
@@ -155,11 +161,11 @@ cat << 'EOF' > "$DIST_DIR/index.html"
 </html>
 EOF
 
-echo "🌐 HTML Web 下载页面已生成！"
+echo "🌐 HTML Web 下载页面 (v${VERSION_NAME}) 已生成！"
 
 # 处理云端部署或本地服务
 if [ "$1" == "--deploy" ]; then
-    echo "🚀 正在部署到 NAS Caddy 服务器..."
+    echo "🚀 正在部署 v${VERSION_NAME} 到 NAS Caddy 服务器..."
     tar czf - -C "$DIST_DIR" . | ssh -p 222 root@hackerlife.fun "mkdir -p /var/www/elevator-qr && tar xzf - -C /var/www/elevator-qr && rm -f /var/www/elevator-qr/._*"
     echo "🎉 NAS 部署成功！实测可用下载访问地址: https://flowstride.hackerlife.fun:8443/elevator/"
 else

@@ -23,10 +23,8 @@ class LocationService : Service(), LocationListener {
     private lateinit var locationManager: LocationManager
     private lateinit var settingsStore: SettingsStore
     private var lastNotifiedTime: Long = 0
-    private var lastProcessedTime: Long = 0
-    private var currentIntervalMs: Long = 900000L // 默认超远距离：15 分钟
+    private var currentIntervalMs: Long = 180000L // 默认 3 分钟
 
-    // 💡 状态标志：是否已在公司/已触发弹窗 (进入在公司挂起模式)
     private var hasTriggeredForOffice: Boolean = false
 
     override fun onCreate() {
@@ -35,8 +33,8 @@ class LocationService : Service(), LocationListener {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         createNotificationChannel()
         
-        // 限制 1：初始化即设为 15 分钟 / 500 米双重极低频
-        updateLocationStrategy(900000L, 500f)
+        // 保底启动：3分钟 / 100 米，使用基站/Wi-Fi低功耗定位
+        updateLocationStrategy(180000L, 100f)
     }
 
     private fun createNotificationChannel() {
@@ -61,20 +59,7 @@ class LocationService : Service(), LocationListener {
         try {
             locationManager.removeUpdates(this)
 
-            // 限制 1 核心：超远距离或进入在公司挂起模式时，仅启用被动定位 PASSIVE_PROVIDER (自身 0 唤醒 0 耗电)
-            if (intervalMs >= 900000L) {
-                if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
-                    locationManager.requestLocationUpdates(
-                        LocationManager.PASSIVE_PROVIDER,
-                        intervalMs,
-                        minDistanceMeters,
-                        this
-                    )
-                }
-                return
-            }
-
-            // 1. 基站/Wi-Fi 低功耗网络定位
+            // 1. 基站/Wi-Fi 低功耗网络定位 (保底 100% 可用且极低功耗)
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,
@@ -84,7 +69,7 @@ class LocationService : Service(), LocationListener {
                 )
             }
 
-            // 2. 被动定位 (PASSIVE_PROVIDER)
+            // 2. 被动定位 (PASSIVE_PROVIDER) 辅助
             if (locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                     LocationManager.PASSIVE_PROVIDER,
@@ -94,7 +79,7 @@ class LocationService : Service(), LocationListener {
                 )
             }
 
-            // 3. 仅当真正接近目标 300 米内时，才短时间开启高精 GPS 芯片
+            // 3. 当接近目标 500 米内时，开启 GPS 芯片精准判定
             if (intervalMs <= 15000L && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
@@ -119,69 +104,38 @@ class LocationService : Service(), LocationListener {
         val distance = location.distanceTo(targetLoc)
         val triggerRadius = settingsStore.triggerRadiusMeters
 
-        // -------------------------------------------------------------
-        // 💡 限制 2：到达公司并已弹窗后的“整天休眠/挂起策略”
-        // -------------------------------------------------------------
+        // 到达后在公司休眠控制：在公司 1.5 公里范围内且今日已通知过，降频至 15 分钟
         if (hasTriggeredForOffice) {
             if (distance > 1500f) {
-                // 当检测到离开公司超过 1.5 公里 (下班/离开)，解除在公司休眠模式
+                // 离开公司超过 1.5 公里，自动重置标志
                 hasTriggeredForOffice = false
-                updateLocationStrategy(900000L, 500f) // 恢复远处 15 分钟低频
+                updateLocationStrategy(180000L, 100f)
             } else {
-                // 仍处于公司及附近范围：进入整天休眠挂起模式 (30分钟采样、仅被动定位、30分钟防抖)
-                if (now - lastProcessedTime < 1800000L) { // 30 分钟内直接硬性 return
-                    return
-                }
-                lastProcessedTime = now
-                updateLocationStrategy(1800000L, 500f)
+                updateLocationStrategy(900000L, 500f)
                 return
             }
         }
 
-        // -------------------------------------------------------------
-        // 💡 限制 1：超远距离下时间+距离双重严控 & 代码级死区硬性防抖
-        // -------------------------------------------------------------
-        val minAllowableThrottleMs = when {
-            distance > 2000f -> 600000L // 离公司 > 2公里：代码层硬性限制 10 分钟内最多处理 1 次
-            distance > 500f  -> 120000L // 500m ~ 2km: 2 分钟硬性防抖
-            else             -> 8000L   // < 500m: 近距离 8 秒防抖
-        }
-
-        if (now - lastProcessedTime < minAllowableThrottleMs) {
-            return // 时间+距离双重控频：直接丢弃，0 耗电
-        }
-        lastProcessedTime = now
-
-        // -------------------------------------------------------------
-        // 动态分级采样与逼近检测
-        // -------------------------------------------------------------
-        val isDrivingFast = location.hasSpeed() && location.speed > 14f
-
+        // 动态分级采样，确保进站能稳定唤醒
         when {
             distance > 2000f -> {
-                // 限制 1 规范：> 2公里，15分钟采样、500米移动阈值 (双重控制)
-                updateLocationStrategy(900000L, 500f)
+                // 2公里外：3 分钟采样、100 米移动阀值 (基站网络定位，极省电)
+                updateLocationStrategy(180000L, 100f)
             }
-            distance > 1000f || isDrivingFast -> {
-                // 1km ~ 2km 或快速驾车：5分钟采样、200米移动阈值
-                updateLocationStrategy(300000L, 200f)
-            }
-            distance > 300f -> {
-                // 300m ~ 1km：1分钟采样、50米移动阈值
+            distance > 500f -> {
+                // 500m ~ 2km：1 分钟采样、50 米移动阀值
                 updateLocationStrategy(60000L, 50f)
             }
             else -> {
-                // < 300米：10秒采样、10米移动阈值 (到达准备)
+                // < 500米：10 秒采样、10 米移动阀值 (开启 GPS + 网络高精定位，确保到站 100% 触发)
                 updateLocationStrategy(10000L, 10f)
             }
         }
 
-        // -------------------------------------------------------------
-        // 到达触发通知
-        // -------------------------------------------------------------
-        if (distance <= triggerRadius && (now - lastNotifiedTime > 10 * 60 * 1000)) {
+        // 触发通知：距离在配置半径内（如 200m）且冷静期已满 5 分钟
+        if (distance <= triggerRadius && (now - lastNotifiedTime > 5 * 60 * 1000)) {
             lastNotifiedTime = now
-            hasTriggeredForOffice = true // 标记已到达公司，进入在公司挂起休眠模式！
+            hasTriggeredForOffice = true
             sendNearOfficeNotification(distance)
         }
     }
