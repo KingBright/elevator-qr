@@ -31,7 +31,7 @@ fun SettingsSheet(
     var lngText by remember { mutableStateOf(settingsStore.targetLng.toString()) }
     var radiusText by remember { mutableStateOf(settingsStore.triggerRadiusMeters.toInt().toString()) }
     var locationEnabled by remember { mutableStateOf(settingsStore.isLocationMonitorEnabled) }
-    var floorText by remember { mutableStateOf(settingsStore.selectedFloor.toString()) }
+    var defaultFloorText by remember { mutableStateOf(settingsStore.defaultFloor.toString()) }
 
     // 时间段设置
     var timeWindowEnabled by remember { mutableStateOf(settingsStore.isTimeWindowEnabled) }
@@ -59,11 +59,11 @@ fun SettingsSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Floor Setting
+            // Default Floor Setting
             OutlinedTextField(
-                value = floorText,
-                onValueChange = { floorText = it },
-                label = { Text("默认目标楼层 (如 11)") },
+                value = defaultFloorText,
+                onValueChange = { defaultFloorText = it },
+                label = { Text("默认目标楼层 (每次打开/切回前台自动恢复)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -215,7 +215,7 @@ fun SettingsSheet(
                         settingsStore.targetLng = lngText.toDouble()
                         settingsStore.triggerRadiusMeters = radiusText.toFloat()
                         settingsStore.isLocationMonitorEnabled = locationEnabled
-                        settingsStore.selectedFloor = floorText.toInt().coerceIn(1, 99)
+                        settingsStore.defaultFloor = defaultFloorText.toInt().coerceIn(1, 99)
                         
                         settingsStore.isTimeWindowEnabled = timeWindowEnabled
                         settingsStore.timeStart1 = start1Text

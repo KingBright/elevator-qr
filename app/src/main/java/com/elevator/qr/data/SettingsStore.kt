@@ -23,11 +23,12 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_LOCATION_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_LOCATION_ENABLED, value).apply()
 
-    var selectedFloor: Int
-        get() = prefs.getInt(KEY_SELECTED_FLOOR, 11)
-        set(value) = prefs.edit().putInt(KEY_SELECTED_FLOOR, value).apply()
+    // 💡 默认目标楼层 (每次打开/切回前台自动恢复此默认楼层)
+    var defaultFloor: Int
+        get() = prefs.getInt(KEY_DEFAULT_FLOOR, 11)
+        set(value) = prefs.edit().putInt(KEY_DEFAULT_FLOOR, value).apply()
 
-    // 💡 时间段双重限定开关与参数
+    // 时间段双重限定开关与参数
     var isTimeWindowEnabled: Boolean
         get() = prefs.getBoolean(KEY_TIME_WINDOW_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_TIME_WINDOW_ENABLED, value).apply()
@@ -65,7 +66,7 @@ class SettingsStore(context: Context) {
         private const val KEY_TARGET_LNG = "target_lng"
         private const val KEY_TRIGGER_RADIUS = "trigger_radius"
         private const val KEY_LOCATION_ENABLED = "location_enabled"
-        private const val KEY_SELECTED_FLOOR = "selected_floor"
+        private const val KEY_DEFAULT_FLOOR = "default_floor"
         private const val KEY_TIME_WINDOW_ENABLED = "time_window_enabled"
         private const val KEY_TIME_START1 = "time_start1"
         private const val KEY_TIME_END1 = "time_end1"

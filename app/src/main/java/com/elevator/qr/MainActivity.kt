@@ -15,13 +15,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Elevator
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
@@ -123,16 +126,17 @@ fun MainScreen(settingsStore: SettingsStore) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var selectedFloor by remember { mutableIntStateOf(settingsStore.selectedFloor) }
+    // 当前展示的楼层 (默认加载设置中的 defaultFloor)
+    var selectedFloor by remember { mutableIntStateOf(settingsStore.defaultFloor) }
     var qrContent by remember { mutableStateOf("") }
     var timestamp by remember { mutableStateOf("") }
     var countdown by remember { mutableIntStateOf(30) }
     var showSettingsSheet by remember { mutableStateOf(false) }
+    var showFloorPickerModal by remember { mutableStateOf(false) }
 
     fun refreshQr(targetFloor: Int = selectedFloor) {
         val floorVal = targetFloor.coerceIn(1, 99)
         selectedFloor = floorVal
-        settingsStore.selectedFloor = floorVal
 
         val result = QrGenerator.generateElevatorQrCode(
             floor = floorVal,
@@ -145,11 +149,12 @@ fun MainScreen(settingsStore: SettingsStore) {
         countdown = 30
     }
 
-    // 监听 Android Lifecycle ON_RESUME 事件！每次切回前台强制自动刷新二维码
+    // 💡 优化需求：每次重新打开/从后台切回前台时，自动恢复显示“默认楼层”！
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                refreshQr(selectedFloor)
+                val defaultFl = settingsStore.defaultFloor
+                refreshQr(defaultFl)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -221,73 +226,90 @@ fun MainScreen(settingsStore: SettingsStore) {
                 verticalArrangement = Arrangement.Center
             ) {
 
-                // 💡 100% 连续线性楼层选择栏 (Linear Continuous Floor Selector)
+                // 🎨 高颜值电梯楼层控制面板
                 Card(
-                    modifier = Modifier.fillMaxWidth(0.92f).padding(bottom = 14.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.9f))
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.95f)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
+                        // 楼层选择区域
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { showFloorPickerModal = true }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
-                            Text(
-                                text = "选择目标楼层: ${selectedFloor}F",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                            Icon(
+                                imageVector = Icons.Default.Elevator,
+                                contentDescription = null,
+                                tint = Color(0xFF3B82F6),
+                                modifier = Modifier.size(24.dp)
                             )
-
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                FilledIconButton(
-                                    onClick = { if (selectedFloor > 1) refreshQr(selectedFloor - 1) },
-                                    modifier = Modifier.size(30.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF334155))
-                                ) {
-                                    Icon(Icons.Default.Remove, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                                }
-
-                                FilledIconButton(
-                                    onClick = { if (selectedFloor < 99) refreshQr(selectedFloor + 1) },
-                                    modifier = Modifier.size(30.dp),
-                                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF334155))
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                val isTempOverride = selectedFloor != settingsStore.defaultFloor
+                                Text(
+                                    text = if (isTempOverride) "临时楼层 (默认 ${settingsStore.defaultFloor}F)" else "默认目标楼层",
+                                    fontSize = 11.sp,
+                                    color = if (isTempOverride) Color(0xFFF59E0B) else Color(0xFF94A3B8)
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "${selectedFloor} 层",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ExpandMore,
+                                        contentDescription = null,
+                                        tint = Color(0xFF94A3B8),
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // 💡 连续线性滑动楼层列表：包含从 1F 至 30F 所有连续线性楼层！
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        // 胶囊加减步进器
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFF0F172A),
+                            modifier = Modifier.height(40.dp)
                         ) {
-                            (1..30).forEach { f ->
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = if (selectedFloor == f) Color(0xFF2563EB) else Color(0xFF334155),
-                                    modifier = Modifier.clickable { refreshQr(f) }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { if (selectedFloor > 1) refreshQr(selectedFloor - 1) },
+                                    modifier = Modifier.size(32.dp)
                                 ) {
-                                    Text(
-                                        text = "${f}F",
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (selectedFloor == f) FontWeight.Bold else FontWeight.Normal
-                                    )
+                                    Icon(Icons.Default.Remove, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+
+                                VerticalDivider(
+                                    modifier = Modifier
+                                        .height(16.dp)
+                                        .width(1.dp),
+                                    color = Color(0xFF334155)
+                                )
+
+                                IconButton(
+                                    onClick = { if (selectedFloor < 99) refreshQr(selectedFloor + 1) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -411,12 +433,73 @@ fun MainScreen(settingsStore: SettingsStore) {
             }
         }
 
+        // 🎨 楼层选择网格弹窗 (Modern Floor Grid Modal)
+        if (showFloorPickerModal) {
+            ModalBottomSheet(
+                onDismissRequest = { showFloorPickerModal = false }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "选择临时到达楼层",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "仅本次生效，再次打开自动恢复 ${settingsStore.defaultFloor}F 默认楼层",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(5),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(260.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items((1..30).toList()) { f ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (selectedFloor == f) Color(0xFF2563EB) else Color(0xFF1E293B),
+                                modifier = Modifier
+                                    .aspectRatio(1.2f)
+                                    .clickable {
+                                        refreshQr(f)
+                                        showFloorPickerModal = false
+                                    }
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    Text(
+                                        text = "${f}F",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (showSettingsSheet) {
             SettingsSheet(
                 settingsStore = settingsStore,
                 onDismiss = {
                     showSettingsSheet = false
-                    refreshQr(settingsStore.selectedFloor)
+                    refreshQr(settingsStore.defaultFloor)
                 }
             )
         }

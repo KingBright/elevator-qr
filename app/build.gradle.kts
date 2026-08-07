@@ -11,8 +11,8 @@ android {
         applicationId = "com.elevator.qr"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.3.1"
+        versionCode = 6
+        versionName = "1.3.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

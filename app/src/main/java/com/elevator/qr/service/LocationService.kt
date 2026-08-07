@@ -181,7 +181,7 @@ class LocationService : Service(), LocationListener {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("📍 已到达目标地点附近")
-            .setContentText("距离设定位置约 ${distance.toInt()} 米，点击快速出示 ${settingsStore.selectedFloor}F 电梯码")
+            .setContentText("距离设定位置约 ${distance.toInt()} 米，点击快速出示 ${settingsStore.defaultFloor}F 电梯码")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(true)
