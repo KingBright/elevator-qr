@@ -15,7 +15,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -128,11 +130,12 @@ fun MainScreen(settingsStore: SettingsStore) {
     var showSettingsSheet by remember { mutableStateOf(false) }
 
     fun refreshQr(targetFloor: Int = selectedFloor) {
-        selectedFloor = targetFloor
-        settingsStore.selectedFloor = targetFloor
+        val floorVal = targetFloor.coerceIn(1, 99)
+        selectedFloor = floorVal
+        settingsStore.selectedFloor = floorVal
 
         val result = QrGenerator.generateElevatorQrCode(
-            floor = targetFloor,
+            floor = floorVal,
             prefix = settingsStore.customPrefix,
             secretKey = settingsStore.secretKey,
             ivKey = settingsStore.ivKey
@@ -213,65 +216,79 @@ fun MainScreen(settingsStore: SettingsStore) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
 
-                // 💡 楼层快捷选择器 (Floor Selector Bar)
+                // 💡 100% 连续线性楼层选择栏 (Linear Continuous Floor Selector)
                 Card(
-                    modifier = Modifier.fillMaxWidth(0.92f).padding(bottom = 16.dp),
+                    modifier = Modifier.fillMaxWidth(0.92f).padding(bottom = 14.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.9f))
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
                     ) {
-                        Text(
-                            text = "目标楼层: ${selectedFloor}F",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            listOf(1, 8, 11, 15).forEach { f ->
+                            Text(
+                                text = "选择目标楼层: ${selectedFloor}F",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                FilledIconButton(
+                                    onClick = { if (selectedFloor > 1) refreshQr(selectedFloor - 1) },
+                                    modifier = Modifier.size(30.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF334155))
+                                ) {
+                                    Icon(Icons.Default.Remove, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+
+                                FilledIconButton(
+                                    onClick = { if (selectedFloor < 99) refreshQr(selectedFloor + 1) },
+                                    modifier = Modifier.size(30.dp),
+                                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF334155))
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 💡 连续线性滑动楼层列表：包含从 1F 至 30F 所有连续线性楼层！
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            (1..30).forEach { f ->
                                 Surface(
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(8.dp),
                                     color = if (selectedFloor == f) Color(0xFF2563EB) else Color(0xFF334155),
                                     modifier = Modifier.clickable { refreshQr(f) }
                                 ) {
                                     Text(
                                         text = "${f}F",
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                         color = Color.White,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontSize = 13.sp,
+                                        fontWeight = if (selectedFloor == f) FontWeight.Bold else FontWeight.Normal
                                     )
                                 }
-                            }
-
-                            FilledIconButton(
-                                onClick = { if (selectedFloor > 1) refreshQr(selectedFloor - 1) },
-                                modifier = Modifier.size(32.dp),
-                                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF334155))
-                            ) {
-                                Icon(Icons.Default.Remove, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                            }
-
-                            FilledIconButton(
-                                onClick = { if (selectedFloor < 99) refreshQr(selectedFloor + 1) },
-                                modifier = Modifier.size(32.dp),
-                                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF334155))
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -348,7 +365,7 @@ fun MainScreen(settingsStore: SettingsStore) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // Control Buttons
                 Row(
