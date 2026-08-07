@@ -23,8 +23,33 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_LOCATION_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_LOCATION_ENABLED, value).apply()
 
+    var selectedFloor: Int
+        get() = prefs.getInt(KEY_SELECTED_FLOOR, 11)
+        set(value) = prefs.edit().putInt(KEY_SELECTED_FLOOR, value).apply()
+
+    // 💡 时间段双重限定开关与参数
+    var isTimeWindowEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TIME_WINDOW_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_TIME_WINDOW_ENABLED, value).apply()
+
+    var timeStart1: String
+        get() = prefs.getString(KEY_TIME_START1, "07:30") ?: "07:30"
+        set(value) = prefs.edit().putString(KEY_TIME_START1, value).apply()
+
+    var timeEnd1: String
+        get() = prefs.getString(KEY_TIME_END1, "09:30") ?: "09:30"
+        set(value) = prefs.edit().putString(KEY_TIME_END1, value).apply()
+
+    var timeStart2: String
+        get() = prefs.getString(KEY_TIME_START2, "17:30") ?: "17:30"
+        set(value) = prefs.edit().putString(KEY_TIME_START2, value).apply()
+
+    var timeEnd2: String
+        get() = prefs.getString(KEY_TIME_END2, "19:30") ?: "19:30"
+        set(value) = prefs.edit().putString(KEY_TIME_END2, value).apply()
+
     var customPrefix: String
-        get() = prefs.getString(KEY_PREFIX, "UM_&E&21&0&") ?: "UM_&E&21&0&"
+        get() = prefs.getString(KEY_PREFIX, "UM_&E&22&0&") ?: "UM_&E&22&0&"
         set(value) = prefs.edit().putString(KEY_PREFIX, value).apply()
 
     var secretKey: String
@@ -40,6 +65,12 @@ class SettingsStore(context: Context) {
         private const val KEY_TARGET_LNG = "target_lng"
         private const val KEY_TRIGGER_RADIUS = "trigger_radius"
         private const val KEY_LOCATION_ENABLED = "location_enabled"
+        private const val KEY_SELECTED_FLOOR = "selected_floor"
+        private const val KEY_TIME_WINDOW_ENABLED = "time_window_enabled"
+        private const val KEY_TIME_START1 = "time_start1"
+        private const val KEY_TIME_END1 = "time_end1"
+        private const val KEY_TIME_START2 = "time_start2"
+        private const val KEY_TIME_END2 = "time_end2"
         private const val KEY_PREFIX = "custom_prefix"
         private const val KEY_SECRET_KEY = "secret_key"
         private const val KEY_IV_KEY = "iv_key"

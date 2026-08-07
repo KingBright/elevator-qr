@@ -9,7 +9,7 @@ import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
 object QrGenerator {
-    const val DEFAULT_PREFIX = "UM_&E&21&0&"
+    const val DEFAULT_PREFIX = "UM_&E&22&0&"
     const val DEFAULT_TEMPLATE = "timestamp&7a05ca6d-4b01-11ef-a26b-08c0eb9317d4&auth&2&0&1&1&{0}&{0}$"
     const val DEFAULT_SECRET_KEY = "Remain2017150705"
     const val DEFAULT_IV_KEY = "201707Remain1505"
@@ -29,6 +29,7 @@ object QrGenerator {
     }
 
     fun generateElevatorQrCode(
+        floor: Int = 11,
         prefix: String = DEFAULT_PREFIX,
         template: String = DEFAULT_TEMPLATE,
         secretKey: String = DEFAULT_SECRET_KEY,
@@ -40,6 +41,7 @@ object QrGenerator {
         var qrCodeContent = template
             .replace("timestamp", currentTimestamp)
             .replace("auth", networkStatus)
+            .replace("{0}", floor.toString())
 
         val encryptedContent = encryptAesCbc(qrCodeContent, secretKey, ivKey)
         val finalContent = prefix + encryptedContent

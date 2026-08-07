@@ -14,12 +14,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -118,13 +121,18 @@ fun MainScreen(settingsStore: SettingsStore) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    var selectedFloor by remember { mutableIntStateOf(settingsStore.selectedFloor) }
     var qrContent by remember { mutableStateOf("") }
     var timestamp by remember { mutableStateOf("") }
     var countdown by remember { mutableIntStateOf(30) }
     var showSettingsSheet by remember { mutableStateOf(false) }
 
-    fun refreshQr() {
+    fun refreshQr(targetFloor: Int = selectedFloor) {
+        selectedFloor = targetFloor
+        settingsStore.selectedFloor = targetFloor
+
         val result = QrGenerator.generateElevatorQrCode(
+            floor = targetFloor,
             prefix = settingsStore.customPrefix,
             secretKey = settingsStore.secretKey,
             ivKey = settingsStore.ivKey
@@ -134,11 +142,11 @@ fun MainScreen(settingsStore: SettingsStore) {
         countdown = 30
     }
 
-    // 💡 优化 2：监听 Android Lifecycle ON_RESUME 事件！每次切回前台强制自动刷新二维码
+    // 监听 Android Lifecycle ON_RESUME 事件！每次切回前台强制自动刷新二维码
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                refreshQr()
+                refreshQr(selectedFloor)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -148,13 +156,14 @@ fun MainScreen(settingsStore: SettingsStore) {
     }
 
     // Auto Refresh Timer & Countdown
-    LaunchedEffect(Unit) {
+    LaunchedEffect(selectedFloor) {
+        refreshQr(selectedFloor)
         while (true) {
             delay(1000)
             if (countdown > 1) {
                 countdown--
             } else {
-                refreshQr()
+                refreshQr(selectedFloor)
             }
         }
     }
@@ -204,10 +213,69 @@ fun MainScreen(settingsStore: SettingsStore) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+
+                // 💡 楼层快捷选择器 (Floor Selector Bar)
+                Card(
+                    modifier = Modifier.fillMaxWidth(0.92f).padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.9f))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "目标楼层: ${selectedFloor}F",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            listOf(1, 8, 11, 15).forEach { f ->
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (selectedFloor == f) Color(0xFF2563EB) else Color(0xFF334155),
+                                    modifier = Modifier.clickable { refreshQr(f) }
+                                ) {
+                                    Text(
+                                        text = "${f}F",
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            FilledIconButton(
+                                onClick = { if (selectedFloor > 1) refreshQr(selectedFloor - 1) },
+                                modifier = Modifier.size(32.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF334155))
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+
+                            FilledIconButton(
+                                onClick = { if (selectedFloor < 99) refreshQr(selectedFloor + 1) },
+                                modifier = Modifier.size(32.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF334155))
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
 
                 // High-contrast Card Container for 100% Hardware Scanner Recognition
                 Card(
@@ -243,7 +311,7 @@ fun MainScreen(settingsStore: SettingsStore) {
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "通行加密生成中 (${countdown}s 后自动刷新)",
+                                    text = "${selectedFloor}F 加密码 (${countdown}s 后自动刷新)",
                                     fontSize = 12.sp,
                                     color = Color(0xFF059669),
                                     fontWeight = FontWeight.Bold
@@ -280,7 +348,7 @@ fun MainScreen(settingsStore: SettingsStore) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Control Buttons
                 Row(
@@ -288,7 +356,7 @@ fun MainScreen(settingsStore: SettingsStore) {
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Button(
-                        onClick = { refreshQr() },
+                        onClick = { refreshQr(selectedFloor) },
                         modifier = Modifier
                             .weight(1f)
                             .height(54.dp),
@@ -329,7 +397,10 @@ fun MainScreen(settingsStore: SettingsStore) {
         if (showSettingsSheet) {
             SettingsSheet(
                 settingsStore = settingsStore,
-                onDismiss = { showSettingsSheet = false }
+                onDismiss = {
+                    showSettingsSheet = false
+                    refreshQr(settingsStore.selectedFloor)
+                }
             )
         }
     }

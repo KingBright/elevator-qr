@@ -31,6 +31,14 @@ fun SettingsSheet(
     var lngText by remember { mutableStateOf(settingsStore.targetLng.toString()) }
     var radiusText by remember { mutableStateOf(settingsStore.triggerRadiusMeters.toInt().toString()) }
     var locationEnabled by remember { mutableStateOf(settingsStore.isLocationMonitorEnabled) }
+    var floorText by remember { mutableStateOf(settingsStore.selectedFloor.toString()) }
+
+    // 时间段设置
+    var timeWindowEnabled by remember { mutableStateOf(settingsStore.isTimeWindowEnabled) }
+    var start1Text by remember { mutableStateOf(settingsStore.timeStart1) }
+    var end1Text by remember { mutableStateOf(settingsStore.timeEnd1) }
+    var start2Text by remember { mutableStateOf(settingsStore.timeStart2) }
+    var end2Text by remember { mutableStateOf(settingsStore.timeEnd2) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -51,15 +59,26 @@ fun SettingsSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Floor Setting
+            OutlinedTextField(
+                value = floorText,
+                onValueChange = { floorText = it },
+                label = { Text("默认目标楼层 (如 11)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // Location Monitor Switch
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("到站自动弹出电梯码提醒", fontWeight = FontWeight.SemiBold)
-                    Text("检测到靠近目标位置时自动发通知", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                    Text("靠近目标位置且在指定时间段内自动弹窗", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                 }
                 Switch(
                     checked = locationEnabled,
@@ -67,7 +86,71 @@ fun SettingsSheet(
                 )
             }
 
-            Divider(modifier = Modifier.padding(vertical = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            // Time Window Strategy Setting
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("启用时间段双重限定 (推荐)", fontWeight = FontWeight.SemiBold)
+                    Text("仅在设定的上下班时间段高精度监听，时间段外彻底休眠", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                }
+                Switch(
+                    checked = timeWindowEnabled,
+                    onCheckedChange = { timeWindowEnabled = it }
+                )
+            }
+
+            if (timeWindowEnabled) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("时间段 1 (例如早晨上班):", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = start1Text,
+                        onValueChange = { start1Text = it },
+                        label = { Text("开始 (HH:mm)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = end1Text,
+                        onValueChange = { end1Text = it },
+                        label = { Text("结束 (HH:mm)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("时间段 2 (例如晚上下班):", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = start2Text,
+                        onValueChange = { start2Text = it },
+                        label = { Text("开始 (HH:mm)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = end2Text,
+                        onValueChange = { end2Text = it },
+                        label = { Text("结束 (HH:mm)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
             Text("目标地点坐标设置 (如公司位置)", fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
@@ -113,7 +196,7 @@ fun SettingsSheet(
                 Text("设置为当前实际位置")
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = radiusText,
@@ -132,10 +215,18 @@ fun SettingsSheet(
                         settingsStore.targetLng = lngText.toDouble()
                         settingsStore.triggerRadiusMeters = radiusText.toFloat()
                         settingsStore.isLocationMonitorEnabled = locationEnabled
+                        settingsStore.selectedFloor = floorText.toInt().coerceIn(1, 99)
+                        
+                        settingsStore.isTimeWindowEnabled = timeWindowEnabled
+                        settingsStore.timeStart1 = start1Text
+                        settingsStore.timeEnd1 = end1Text
+                        settingsStore.timeStart2 = start2Text
+                        settingsStore.timeEnd2 = end2Text
+
                         Toast.makeText(context, "设置已保存", Toast.LENGTH_SHORT).show()
                         onDismiss()
                     } catch (e: Exception) {
-                        Toast.makeText(context, "请输入有效的经纬度和数值", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "请输入有效的数字和时间格式", Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier
