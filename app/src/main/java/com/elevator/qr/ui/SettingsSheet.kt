@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,12 +35,15 @@ fun SettingsSheet(
     var locationEnabled by remember { mutableStateOf(settingsStore.isLocationMonitorEnabled) }
     var defaultFloorText by remember { mutableStateOf(settingsStore.defaultFloor.toString()) }
 
-    // 时间段设置
+    // 时间段设置 (默认只有 1 个时间段)
     var timeWindowEnabled by remember { mutableStateOf(settingsStore.isTimeWindowEnabled) }
     var start1Text by remember { mutableStateOf(settingsStore.timeStart1) }
     var end1Text by remember { mutableStateOf(settingsStore.timeEnd1) }
-    var start2Text by remember { mutableStateOf(settingsStore.timeStart2) }
-    var end2Text by remember { mutableStateOf(settingsStore.timeEnd2) }
+
+    // 第二个时间段按需添加
+    var hasSecondWindow by remember { mutableStateOf(settingsStore.timeStart2.isNotBlank() || settingsStore.timeEnd2.isNotBlank()) }
+    var start2Text by remember { mutableStateOf(if (hasSecondWindow) settingsStore.timeStart2 else "17:30") }
+    var end2Text by remember { mutableStateOf(if (hasSecondWindow) settingsStore.timeEnd2 else "19:30") }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -63,7 +68,7 @@ fun SettingsSheet(
             OutlinedTextField(
                 value = defaultFloorText,
                 onValueChange = { defaultFloorText = it },
-                label = { Text("默认目标楼层 (每次打开/切回前台自动恢复)") },
+                label = { Text("默认目标楼层 (每次打开自动加载此楼层)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -95,8 +100,8 @@ fun SettingsSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("启用时间段双重限定 (推荐)", fontWeight = FontWeight.SemiBold)
-                    Text("仅在设定的上下班时间段高精度监听，时间段外彻底休眠", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                    Text("启用时间段限定 (推荐)", fontWeight = FontWeight.SemiBold)
+                    Text("仅在设定的时间段内开启高精度监听，时间段外完全休眠", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                 }
                 Switch(
                     checked = timeWindowEnabled,
@@ -106,7 +111,7 @@ fun SettingsSheet(
 
             if (timeWindowEnabled) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Text("时间段 1 (例如早晨上班):", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                Text("触发时间段 (例如早晨上班):", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -128,25 +133,58 @@ fun SettingsSheet(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("时间段 2 (例如晚上下班):", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = start2Text,
-                        onValueChange = { start2Text = it },
-                        label = { Text("开始 (HH:mm)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = end2Text,
-                        onValueChange = { end2Text = it },
-                        label = { Text("结束 (HH:mm)") },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
+
+                // 第二个时间段：仅在用户主动添加后显示
+                if (hasSecondWindow) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("第二个时间段 (如晚上下班):", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                        IconButton(
+                            onClick = {
+                                hasSecondWindow = false
+                                start2Text = ""
+                                end2Text = ""
+                            }
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = start2Text,
+                            onValueChange = { start2Text = it },
+                            label = { Text("开始 (HH:mm)") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = end2Text,
+                            onValueChange = { end2Text = it },
+                            label = { Text("结束 (HH:mm)") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = {
+                            hasSecondWindow = true
+                            if (start2Text.isBlank()) start2Text = "17:30"
+                            if (end2Text.isBlank()) end2Text = "19:30"
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("添加第二个触发时间段")
+                    }
                 }
             }
 
@@ -220,8 +258,14 @@ fun SettingsSheet(
                         settingsStore.isTimeWindowEnabled = timeWindowEnabled
                         settingsStore.timeStart1 = start1Text
                         settingsStore.timeEnd1 = end1Text
-                        settingsStore.timeStart2 = start2Text
-                        settingsStore.timeEnd2 = end2Text
+                        
+                        if (hasSecondWindow) {
+                            settingsStore.timeStart2 = start2Text
+                            settingsStore.timeEnd2 = end2Text
+                        } else {
+                            settingsStore.timeStart2 = ""
+                            settingsStore.timeEnd2 = ""
+                        }
 
                         Toast.makeText(context, "设置已保存", Toast.LENGTH_SHORT).show()
                         onDismiss()

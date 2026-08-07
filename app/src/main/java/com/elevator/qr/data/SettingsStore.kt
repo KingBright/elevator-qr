@@ -23,7 +23,7 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_LOCATION_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_LOCATION_ENABLED, value).apply()
 
-    // 💡 默认目标楼层 (每次打开/切回前台自动恢复此默认楼层)
+    // 默认目标楼层
     var defaultFloor: Int
         get() = prefs.getInt(KEY_DEFAULT_FLOOR, 11)
         set(value) = prefs.edit().putInt(KEY_DEFAULT_FLOOR, value).apply()
@@ -33,6 +33,7 @@ class SettingsStore(context: Context) {
         get() = prefs.getBoolean(KEY_TIME_WINDOW_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_TIME_WINDOW_ENABLED, value).apply()
 
+    // 💡 默认只设置 1 个时间段 (早晨 07:30 - 09:30)
     var timeStart1: String
         get() = prefs.getString(KEY_TIME_START1, "07:30") ?: "07:30"
         set(value) = prefs.edit().putString(KEY_TIME_START1, value).apply()
@@ -41,12 +42,13 @@ class SettingsStore(context: Context) {
         get() = prefs.getString(KEY_TIME_END1, "09:30") ?: "09:30"
         set(value) = prefs.edit().putString(KEY_TIME_END1, value).apply()
 
+    // 第二个时间段默认留空，只有用户手动添加时才启用
     var timeStart2: String
-        get() = prefs.getString(KEY_TIME_START2, "17:30") ?: "17:30"
+        get() = prefs.getString(KEY_TIME_START2, "") ?: ""
         set(value) = prefs.edit().putString(KEY_TIME_START2, value).apply()
 
     var timeEnd2: String
-        get() = prefs.getString(KEY_TIME_END2, "19:30") ?: "19:30"
+        get() = prefs.getString(KEY_TIME_END2, "") ?: ""
         set(value) = prefs.edit().putString(KEY_TIME_END2, value).apply()
 
     var customPrefix: String

@@ -50,15 +50,19 @@ class LocationService : Service(), LocationListener {
     }
 
     /**
-     * 💡 判断当前系统时间是否处于用户设定的活动时间段内 (例如 07:30 - 09:30 或 17:30 - 19:30)
+     * 💡 判断当前系统时间是否处于用户设定的活动时间段内
      */
     private fun isInActiveTimeWindow(): Boolean {
-        if (!settingsStore.isTimeWindowEnabled) return true // 若未开启时间段限制，默认全天生效
+        if (!settingsStore.isTimeWindowEnabled) return true
 
         return try {
             val nowTimeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             val inWindow1 = isCurrentTimeBetween(nowTimeStr, settingsStore.timeStart1, settingsStore.timeEnd1)
-            val inWindow2 = isCurrentTimeBetween(nowTimeStr, settingsStore.timeStart2, settingsStore.timeEnd2)
+            val inWindow2 = if (settingsStore.timeStart2.isNotBlank() && settingsStore.timeEnd2.isNotBlank()) {
+                isCurrentTimeBetween(nowTimeStr, settingsStore.timeStart2, settingsStore.timeEnd2)
+            } else {
+                false
+            }
             inWindow1 || inWindow2
         } catch (e: Exception) {
             true
@@ -77,11 +81,11 @@ class LocationService : Service(), LocationListener {
     private fun evaluateAndApplyStrategy(distanceToTargetMeters: Float = 99999f) {
         val inTimeWindow = isInActiveTimeWindow()
 
-        // 1. 如果不在设定时间段内：彻底切入“极低功耗挂起”状态 (30分钟采样 / 纯被动定位，耗电接近 0)
+        // 1. 如果不在设定时间段内：彻底切入“极低功耗挂起”状态
         val targetIntervalMs = if (!inTimeWindow) {
             1800000L // 30 分钟
         } else {
-            // 2. 在时间段内：采用高灵敏度分级策略！放宽限制，确保 100% 触发弹窗
+            // 2. 在时间段内：采用高灵敏度分级策略！
             when {
                 distanceToTargetMeters > 2000f -> 120000L // >2km: 2分钟采样
                 distanceToTargetMeters > 500f  -> 30000L  // 500m~2km: 30秒采样
@@ -151,13 +155,10 @@ class LocationService : Service(), LocationListener {
         val distance = location.distanceTo(targetLoc)
         val triggerRadius = settingsStore.triggerRadiusMeters
 
-        // 根据最新距离与时间段更新定位灵敏度
         evaluateAndApplyStrategy(distance)
 
-        // 仅在指定时间段内，且靠近目标半径 (如 200m) 时触发通知
         if (isInActiveTimeWindow() && distance <= triggerRadius) {
             val now = System.currentTimeMillis()
-            // 防重复报警：5 分钟内不重复弹窗
             if (now - lastNotifiedTime > 5 * 60 * 1000) {
                 lastNotifiedTime = now
                 sendNearOfficeNotification(distance)
